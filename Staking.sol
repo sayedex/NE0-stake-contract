@@ -27,6 +27,9 @@ abstract contract Staking is IStaking, ReentrancyGuard, Ownable {
     // Interfaces for ERC721
     IERC721 public nftCollection;
 
+    // Max tx limit
+    uint256 public MaxTx;
+
     /*///////////////////////////////////////////////////////////////
                         External/Public Functions
     //////////////////////////////////////////////////////////////*/
@@ -61,6 +64,12 @@ abstract contract Staking is IStaking, ReentrancyGuard, Ownable {
      */
     function claimRewards() external nonReentrant {
         _claimRewards();
+    }
+
+    // Function to update MaxTx
+    function updateMaxTx(uint256 _newMaxTx) external onlyOwner {
+        require(_newMaxTx > 0, "New MaxTx must be greater than zero");
+        MaxTx = _newMaxTx;
     }
 
     /**
@@ -150,6 +159,7 @@ abstract contract Staking is IStaking, ReentrancyGuard, Ownable {
     function _stake(uint256[] memory _tokenIds) internal virtual {
         uint256 len = _tokenIds.length;
         require(len != 0, "Staking 0 tokens");
+        require(MaxTx >= len,"max limit reached");
         // If wallet has tokens staked, calculate the rewards before adding the new tokens
         if (stakers[_stakeMsgSender()].amountStaked > 0) {
             _updateUnclaimedRewardsForStaker(_stakeMsgSender());
@@ -204,6 +214,7 @@ abstract contract Staking is IStaking, ReentrancyGuard, Ownable {
     function _withdraw(uint256[] memory _tokenIds) internal virtual {
         uint256 _amountStaked = stakers[_stakeMsgSender()].amountStaked;
         uint256 len = _tokenIds.length;
+        require(MaxTx >= len,"max limit reached");
         require(len != 0, "Withdrawing 0 tokens");
         require(_amountStaked >= len, "Withdrawing more than staked");
 
