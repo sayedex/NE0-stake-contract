@@ -43,8 +43,9 @@ Before interacting with the Staking contract, make sure you have the following:
 
 ### This function will allow admin to update new reward to contract
  - poolId: The ID of the pool you want to update.
- -  it's per minute reward. for example if you put 0.69 token reward will be 994 per day
+ -  it's per minute reward. for example if you put 0.69 token reward will be 994 per day so the logic is like in 24h there are 1440 minute so if you put 0.69 token reward will be 0.69*1440 = 994
  -  _rewardsPerUnitTime: The new rewards per unit time value.  https://eth-converter.com/ check it here you can convert
+
 
 
 ```solidity
