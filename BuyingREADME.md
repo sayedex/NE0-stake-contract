@@ -50,7 +50,9 @@ As the owner of the contract, you have the ability to set or update the price of
  
 
 ## 2.Function to update the treasuryWallet address
+Keep in mind one things that is treasuryWallet need to hold all token that you want to sell otherwise contract can't sell the reward nft
 - _newTreasuryWallet : new treasuryWallet address
+
 ```solidity
 
 function setTreasuryWallet(address _newTreasuryWallet) external onlyOwner {
@@ -64,6 +66,7 @@ function setTreasuryWallet(address _newTreasuryWallet) external onlyOwner {
  - You can find setApprovalForAll function in NEOBux contract
  - address will be Buy contract address
  - approvad - true
+
  ![approval](https://github.com/sayedex/NE0-stake-contract/blob/master/Screenshot/7.png?raw=true)
 
 
