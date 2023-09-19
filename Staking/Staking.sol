@@ -4,9 +4,11 @@ import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "./interface/IStaking.sol";
+import "./IStaking.sol";
 
 abstract contract Staking is IStaking, ReentrancyGuard, Ownable {
+    // loop limit 
+    uint256 private batchSizeforloop = 10;
     // Mapping all pool record
     mapping(uint256 => Pool) public pools;
 
@@ -76,6 +78,12 @@ abstract contract Staking is IStaking, ReentrancyGuard, Ownable {
         MaxTx = _newMaxTx;
     }
 
+       // Function to update MaxTx
+    function updateMaxLoop(uint256 _limit) external onlyOwner {
+        require(batchSizeforloop != 0, "New _limit must be greater than zero");
+        batchSizeforloop = _limit;
+    }
+
     /**
      *  @notice  Set time unit. Set as a number of seconds.
      *           Could be specified as -- x * 1 hours, x * 1 days, etc.
@@ -116,7 +124,8 @@ abstract contract Staking is IStaking, ReentrancyGuard, Ownable {
     function setRewardsPerUnitTime(uint256 poolId, uint256 _rewardsPerUnitTime)
         external
         onlyOwner
-    {   require(activePool[poolId], "Pool not exists");
+    {
+        require(activePool[poolId], "Pool not exists");
         Pool storage pool = pools[poolId];
         uint256 currentId = pool.nextConditionId;
         StakingCondition memory poolConidtion = pool.stakingConditions[
@@ -134,14 +143,18 @@ abstract contract Staking is IStaking, ReentrancyGuard, Ownable {
             _rewardsPerUnitTime
         );
 
-       emit UpdatedRewardsPerUnitTime(poolConidtion.rewardsPerUnitTime, _rewardsPerUnitTime);
+        emit UpdatedRewardsPerUnitTime(
+            poolConidtion.rewardsPerUnitTime,
+            _rewardsPerUnitTime
+        );
     }
 
     function getTimeUnit(uint256 poolId)
         public
         view
         returns (uint256 _timeUnit)
-    {   require(activePool[poolId], "Pool not exists");
+    {
+        require(activePool[poolId], "Pool not exists");
         Pool storage pool = pools[poolId];
         _timeUnit = pool.stakingConditions[pool.nextConditionId - 1].timeUnit;
     }
@@ -150,24 +163,31 @@ abstract contract Staking is IStaking, ReentrancyGuard, Ownable {
         public
         view
         returns (uint256 _rewardsPerUnitTime)
-
-    {    require(activePool[poolId], "Pool already exists");
+    {
+        require(activePool[poolId], "Pool already exists");
         Pool storage pool = pools[poolId];
         _rewardsPerUnitTime = pool
             .stakingConditions[pool.nextConditionId - 1]
             .rewardsPerUnitTime;
     }
 
-    // @dev get Reward amd reward time 
-    
-    function getPoolinfo(uint256 poolId) public view returns(uint256 _timeUnit,uint256 _rewardsPerUnitTime,uint256 _totalStaked){
-         Pool storage pool = pools[poolId];
-          _timeUnit = pool.stakingConditions[pool.nextConditionId - 1].timeUnit;
-          _rewardsPerUnitTime = pool
+    // @dev get Reward amd reward time
+
+    function getPoolinfo(uint256 poolId)
+        public
+        view
+        returns (
+            uint256 _timeUnit,
+            uint256 _rewardsPerUnitTime,
+            uint256 _totalStaked
+        )
+    {
+        Pool storage pool = pools[poolId];
+        _timeUnit = pool.stakingConditions[pool.nextConditionId - 1].timeUnit;
+        _rewardsPerUnitTime = pool
             .stakingConditions[pool.nextConditionId - 1]
             .rewardsPerUnitTime;
-         _totalStaked =  pool.totalStaked;  
-
+        _totalStaked = pool.totalStaked;
     }
 
     /// @dev Set staking conditions.
@@ -190,7 +210,8 @@ abstract contract Staking is IStaking, ReentrancyGuard, Ownable {
         });
 
         if (conditionId > 0) {
-            pool.stakingConditions[conditionId - 1].endTimestamp = block.timestamp;
+            pool.stakingConditions[conditionId - 1].endTimestamp = block
+                .timestamp;
         }
     }
 
@@ -212,7 +233,7 @@ abstract contract Staking is IStaking, ReentrancyGuard, Ownable {
         pool.nftCollection = nftCollectionAddress;
         pool.rewardToken = rewardTokenAddress;
         _setStakingCondition(numberOfPools, _timeUnit, _rewardsPerUnitTime);
-         activePool[numberOfPools] = true;
+        activePool[numberOfPools] = true;
         numberOfPools++;
         // Emit an event to log the addition of the new pool
         emit PoolAdded(numberOfPools, nftCollectionAddress, rewardTokenAddress);
@@ -315,7 +336,6 @@ abstract contract Staking is IStaking, ReentrancyGuard, Ownable {
         stakers[poolId][_stakeMsgSender()].amountStaked -= len;
         pool.totalStaked -= len;
 
-
         for (uint256 i = 0; i < _tokenIds.length; i++) {
             // Find the index of this token id in the stakedTokens array
             uint256 index = 0;
@@ -389,23 +409,27 @@ abstract contract Staking is IStaking, ReentrancyGuard, Ownable {
             1;
     }
 
-    /// @dev Calculate rewards for a staker.
-    function _calculateRewards(uint256 poolId, address _staker)
-        internal
-        view
-        virtual
-        returns (uint256 _rewards)
-    {
+    /// @dev Calculate rewards for a staker with pagination.
+    function _calculateRewardsWithPagination(
+        uint256 poolId,
+        address _staker,
+        uint256 startIndex,
+        uint256 batchSize
+    ) internal view virtual returns (uint256 _rewards) {
         Staker memory staker = stakers[poolId][_staker];
         Pool storage pool = pools[poolId];
 
-        uint256 _stakerConditionId = staker.conditionIdOflastUpdate;
         uint256 _nextConditionId = pool.nextConditionId;
+        uint256 endIndex = startIndex + batchSize;
 
-        for (uint256 i = _stakerConditionId; i < _nextConditionId; i += 1) {
+        if (endIndex > _nextConditionId) {
+            endIndex = _nextConditionId;
+        }
+
+        for (uint256 i = startIndex; i < endIndex; i += 1) {
             StakingCondition memory condition = pool.stakingConditions[i];
 
-            uint256 startTime = i != _stakerConditionId
+            uint256 startTime = i != startIndex
                 ? condition.startTimestamp
                 : staker.timeOfLastUpdate;
             uint256 endTime = condition.endTimestamp != 0
@@ -425,6 +449,45 @@ abstract contract Staking is IStaking, ReentrancyGuard, Ownable {
                 ? rewardsSum
                 : _rewards;
         }
+
+        return _rewards;
+    }
+
+    // External function to calculate rewards with pagination
+    function _calculateRewards(uint256 poolId, address _staker)
+        internal
+        view
+        virtual
+        returns (uint256 _rewards)
+    {
+        uint256 startIndex = 0;
+
+        // Get the last condition ID
+        uint256 _nextConditionId = pools[poolId].nextConditionId;
+
+        // Loop until all staking conditions are processed or startIndex exceeds _nextConditionId
+        while (startIndex < _nextConditionId) {
+            // Calculate the number of conditions to process in this batch
+            uint256 conditionsToProcess;
+            if (_nextConditionId - startIndex < batchSizeforloop) {
+                conditionsToProcess = _nextConditionId - startIndex;
+            } else {
+                conditionsToProcess = batchSizeforloop;
+            }
+
+            uint256 rewardsBatch = _calculateRewardsWithPagination(
+                poolId,
+                _staker,
+                startIndex,
+                conditionsToProcess
+            );
+            _rewards += rewardsBatch;
+
+            // Increment the starting index for the next batch
+            startIndex += conditionsToProcess;
+        }
+
+        return _rewards;
     }
 
     /*////////////////////////////////////////////////////////////////////
