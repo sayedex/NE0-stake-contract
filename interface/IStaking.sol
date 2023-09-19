@@ -20,6 +20,15 @@ interface IStaking {
         uint256 endTimestamp;
     }
 
+    // Define a Pool struct
+    struct Pool {
+        uint256 nextConditionId;
+        mapping(uint256 => StakingCondition) stakingConditions;
+        address nftCollection;
+        address rewardToken;
+        uint256 totalStaked;
+    }
+
     struct StakedToken {
         address staker;
         uint256 tokenId;
@@ -38,4 +47,27 @@ interface IStaking {
         uint256 unclaimedRewards;
         uint256 conditionIdOflastUpdate;
     }
+    /// @dev Emitted when a pool created
+    event PoolAdded(
+        uint256 indexed poolId,
+        address indexed nftCollectionAddress,
+        address indexed rewardTokenAddress
+    );
+    /// @dev Emitted when a set of token-ids are staked.
+    event TokensStaked(address indexed staker, uint256[] indexed tokenIds);
+
+    /// @dev Emitted when a set of staked token-ids are withdrawn.
+    event TokensWithdrawn(address indexed staker, uint256[] indexed tokenIds);
+
+    /// @dev Emitted when a staker claims staking rewards.
+    event RewardsClaimed(address indexed staker, uint256 rewardAmount);
+
+    /// @dev Emitted when contract admin updates timeUnit.
+    event UpdatedTimeUnit(uint256 oldTimeUnit, uint256 newTimeUnit);
+
+    /// @dev Emitted when contract admin updates rewardsPerUnitTime.
+    event UpdatedRewardsPerUnitTime(
+        uint256 oldRewardsPerUnitTime,
+        uint256 newRewardsPerUnitTime
+    );
 }

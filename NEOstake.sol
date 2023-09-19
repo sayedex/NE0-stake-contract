@@ -8,46 +8,75 @@ import "./Staking.sol";
 contract NEOstake is ERC721Holder, Staking {
     using SafeERC20 for IERC20;
 
-    //reward balance
-    uint256 rewardProviderTokenAllowance = 0;
-    // interfaces for erc20
-    IERC20 public immutable token;
+    // treasury wallet
+    address public treasuryWallet;
 
     // Constructor function to set the rewards token and the NFT collection addresses
-    constructor(
-        IERC721 _nftCollection,
-        IERC20 _token,
-        uint256 _timeUnit,
-        uint256 _rewardsPerUnitTime
-    ) {
-        nftCollection = _nftCollection;
-        token = _token;
-        _setStakingCondition(_timeUnit, _rewardsPerUnitTime);
-    }
-
-    function addStakedTokenReward(uint256 _amount) external onlyOwner {
-        //transfer from (need allowance)
-        rewardProviderTokenAllowance += _amount;
-        token.safeTransferFrom(_stakeMsgSender(), address(this), _amount);
-    }
-
-    function removeStakedTokenReward(uint256 _amount) external onlyOwner {
+    constructor(address _treasuryWallet) {
+        MaxTx = 15;
         require(
-            _amount <= rewardProviderTokenAllowance,
-            "you cannot withdraw this amount"
+            _treasuryWallet != address(0),
+            "Invalid treasury wallet address"
         );
-        rewardProviderTokenAllowance -= _amount;
-        token.safeTransfer(_stakeMsgSender(), _amount);
+        treasuryWallet = _treasuryWallet;
     }
 
     /// @dev Mint/Transfer ERC20 rewards to the staker.
-    function _mintRewards(address _staker, uint256 _rewards) internal override {
+    function _mintRewards(
+        address _rewardToken,
+        address _staker,
+        uint256 _rewards
+    ) internal override {
+        IERC20 rewardToken = IERC20(_rewardToken);
         require(
-            _rewards <= rewardProviderTokenAllowance,
-            "Not enough reward tokens"
+            rewardToken.allowance(treasuryWallet, address(this)) >= _rewards,
+            "Insufficient allowance"
         );
-        rewardProviderTokenAllowance -= _rewards;
-        token.safeTransfer(_staker, _rewards);
+        require(
+            rewardToken.balanceOf(treasuryWallet) >= _rewards,
+            "Insufficient balance"
+        );
+        transferCurrency(_rewardToken, treasuryWallet, _staker, _rewards);
+    }
+
+    /// @dev Transfers a given amount of currency.
+    function transferCurrency(
+        address _currency,
+        address _from,
+        address _to,
+        uint256 _amount
+    ) internal {
+        if (_amount == 0) {
+            return;
+        }
+        safeTransferERC20(_currency, _from, _to, _amount);
+    }
+
+    // @dev Transfer `amount` of ERC20 token from `from` to `to`.
+    function safeTransferERC20(
+        address _currency,
+        address _from,
+        address _to,
+        uint256 _amount
+    ) internal {
+        if (_from == _to) {
+            return;
+        }
+
+        if (_from == address(this)) {
+            IERC20(_currency).safeTransfer(_to, _amount);
+        } else {
+            IERC20(_currency).safeTransferFrom(_from, _to, _amount);
+        }
+    }
+
+    // Function to update the treasuryWallet address
+    function setTreasuryWallet(address _newTreasuryWallet) external onlyOwner {
+        require(
+            _newTreasuryWallet != address(0),
+            "Invalid treasury wallet address"
+        );
+        treasuryWallet = _newTreasuryWallet;
     }
 
     // Receive Funds from external
@@ -60,60 +89,92 @@ contract NEOstake is ERC721Holder, Staking {
     //////////
 
     /// @dev View available rewards for a user.
-    function availableRewards(address _user)
+    function availableRewards(uint256 poolId, address _user)
         public
         view
         returns (uint256 _rewards)
     {
-        if (stakers[_user].amountStaked == 0) {
-            _rewards = stakers[_user].unclaimedRewards;
+        if (stakers[poolId][_user].amountStaked == 0) {
+            _rewards = stakers[poolId][_user].unclaimedRewards;
         } else {
             _rewards =
-                stakers[_user].unclaimedRewards +
-                _calculateRewards(_user);
+                stakers[poolId][_user].unclaimedRewards +
+                _calculateRewards(poolId, _user);
         }
     }
 
-    function getTotalStaked() public view returns (uint256) {
-        return totalStaked;
+    // Function to get staker information by pool ID and address
+    function getStakerInfo(uint256 poolId, address stakerAddress) public view returns (Staker memory) {
+        return stakers[poolId][stakerAddress];
     }
 
-    function getStakedTokens(address _user)
+
+
+    /// @dev view user info
+      function getUser(uint256 poolId, address _user)
         public
         view
-        returns (StakedToken[] memory)
+        returns (uint256 _rewards,uint256 _staked)
+
+    {
+        _rewards = availableRewards(poolId,_user);
+        _staked  = stakers[poolId][_user].amountStaked;
+      
+    }
+
+
+
+    function getStakedTokens(uint256 poolId, address _user)
+        public
+        view
+        returns (uint256[] memory)
     {
         // Check if we know this user
-        if (stakers[_user].amountStaked > 0) {
+        if (stakers[poolId][_user].amountStaked > 0) {
             // Return all the tokens in the stakedToken Array for this user that are not -1
-            StakedToken[] memory _stakedTokens = new StakedToken[](
-                stakers[_user].amountStaked
+           uint256[] memory _stakedTokenIds = new uint256[](
+            stakers[poolId][_user].amountStaked
             );
             uint256 _index = 0;
 
-            for (uint256 j = 0; j < stakers[_user].stakedTokens.length; j++) {
-                if (stakers[_user].stakedTokens[j].staker != (address(0))) {
-                    _stakedTokens[_index] = stakers[_user].stakedTokens[j];
+            for (
+                uint256 j = 0;
+                j < stakers[poolId][_user].stakedTokens.length;
+                j++
+            ) {
+                if (
+                    stakers[poolId][_user].stakedTokens[j].staker !=
+                    (address(0))
+                ) {
+                _stakedTokenIds[_index] = stakers[poolId][_user].stakedTokens[j].tokenId;
                     _index++;
                 }
             }
+              // Resize the _stakedTokenIds array to remove any unused slots
+         assembly {
+            mstore(_stakedTokenIds, _index)
+          }
 
-            return _stakedTokens;
+
+            return _stakedTokenIds;
         }
         // Otherwise, return empty array
         else {
-            return new StakedToken[](0);
+                  return new uint256[](0);
         }
     }
-
-
 
     /*///////////////////////////////////////////////////////////////
                             Miscellaneous
     //////////////////////////////////////////////////////////////*/
 
-    function _stakeMsgSender() internal view virtual override returns (address) {
+    function _stakeMsgSender()
+        internal
+        view
+        virtual
+        override
+        returns (address)
+    {
         return _msgSender();
     }
-
 }
