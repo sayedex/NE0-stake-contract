@@ -4,7 +4,7 @@ import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "./IStaking.sol";
+import "./interface/IStaking.sol";
 
 abstract contract Staking is IStaking, ReentrancyGuard, Ownable {
     // loop limit 
