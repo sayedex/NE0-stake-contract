@@ -46,5 +46,5 @@ This project is used by the following companies:
 
 ## Screenshots
 
-![App Screenshot](https://ibb.co/f2gvf6n)
+[![1.png](https://i.postimg.cc/mDt15CFt/1.png)](https://postimg.cc/0M1N66ns)
 
