@@ -25,11 +25,10 @@ Before interacting with the Staking contract, make sure you have the following:
 
 - Stake NFT
 - Unstake NFT
-- Withdraw reward anytime
-- No lock systeam
+- Claim reward
 
 
-## Pool id
+## Pool id 
 
 
 
@@ -73,6 +72,7 @@ function updateMaxTx(uint256 _newMaxTx) external onlyOwner {
 ## Function to update the treasuryWallet address
  - Additional logic to approve NEObux token for staking contract
  - Example call check :
+ - You can find approve function in NEOBux contract
  - address will be staking contract address
  - amount will be the reward you want to pay to user in total for all pool
  ![approval](https://github.com/sayedex/NE0-stake-contract/blob/master/Screenshot/4.png?raw=true)
