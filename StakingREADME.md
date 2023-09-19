@@ -42,13 +42,6 @@ Before interacting with the Staking contract, make sure you have the following:
 
 
 ### This function will allow admin to update new reward to contract
-
-![SetReward](https://github.com/sayedex/NE0-stake-contract/blob/master/Screenshot/3.png?raw=true)
-- NEOBux to Wei
-- NEOBux token to wei value, for example 100 NEOBux means 100000000000000000000 wei
-
-![Wei convert](https://github.com/sayedex/NE0-stake-contract/blob/master/Screenshot/5.png?raw=true)   
-
  - poolId: The ID of the pool you want to update.
 -  _rewardsPerUnitTime: The new rewards per unit time value.  https://eth-converter.com/ check it here you can convert
 
@@ -57,6 +50,16 @@ function setRewardsPerUnitTime(uint256 poolId, uint256 _rewardsPerUnitTime) exte
   //admin only
 }
 ```
+
+
+![SetReward](https://github.com/sayedex/NE0-stake-contract/blob/master/Screenshot/3.png?raw=true)
+- NEOBux to Wei
+- NEOBux token to wei value, for example 100 NEOBux means 100000000000000000000 wei
+
+![Wei convert](https://github.com/sayedex/NE0-stake-contract/blob/master/Screenshot/5.png?raw=true)   
+
+
+
 
 
 ### This function allow admin to update per transation Stake/Unstake amount limit 
@@ -70,17 +73,19 @@ function updateMaxTx(uint256 _newMaxTx) external onlyOwner {
 ```    
 
 ## Function to update the treasuryWallet address
- - Additional logic to approve NEObux token for staking contract
+- _newTreasuryWallet : new treasuryWallet address
+```solidity
+
+function setTreasuryWallet(address _newTreasuryWallet) external onlyOwner {
+      //admin only
+}
+
+```
+
+ - When you update new treasuryWallet,you have to approve NEObux token for staking contract
  - Example call check :
  - You can find approve function in NEOBux contract
  - address will be staking contract address
  - amount will be the reward you want to pay to user in total for all pool
  ![approval](https://github.com/sayedex/NE0-stake-contract/blob/master/Screenshot/4.png?raw=true)
 
-```solidity
-- _newTreasuryWallet : new treasuryWallet address
-function setTreasuryWallet(address _newTreasuryWallet) external onlyOwner {
-      //admin only
-}
-
-```
