@@ -84,85 +84,7 @@ contract NEOstake is ERC721Holder, Staking {
         // React to receiving ether
     }
 
-    //////////
-    // View //
-    //////////
 
-    /// @dev View available rewards for a user.
-    function availableRewards(uint256 poolId, address _user)
-        public
-        view
-        returns (uint256 _rewards)
-    {
-        if (stakers[poolId][_user].amountStaked == 0) {
-            _rewards = stakers[poolId][_user].unclaimedRewards;
-        } else {
-            _rewards =
-                stakers[poolId][_user].unclaimedRewards +
-                _calculateRewards(poolId, _user);
-        }
-    }
-
-    // Function to get staker information by pool ID and address
-    function getStakerInfo(uint256 poolId, address stakerAddress) public view returns (Staker memory) {
-        return stakers[poolId][stakerAddress];
-    }
-
-
-
-    /// @dev view user info
-      function getUser(uint256 poolId, address _user)
-        public
-        view
-        returns (uint256 _rewards,uint256 _staked)
-
-    {
-        _rewards = availableRewards(poolId,_user);
-        _staked  = stakers[poolId][_user].amountStaked;
-      
-    }
-
-
-
-    function getStakedTokens(uint256 poolId, address _user)
-        public
-        view
-        returns (uint256[] memory)
-    {
-        // Check if we know this user
-        if (stakers[poolId][_user].amountStaked > 0) {
-            // Return all the tokens in the stakedToken Array for this user that are not -1
-           uint256[] memory _stakedTokenIds = new uint256[](
-            stakers[poolId][_user].amountStaked
-            );
-            uint256 _index = 0;
-
-            for (
-                uint256 j = 0;
-                j < stakers[poolId][_user].stakedTokens.length;
-                j++
-            ) {
-                if (
-                    stakers[poolId][_user].stakedTokens[j].staker !=
-                    (address(0))
-                ) {
-                _stakedTokenIds[_index] = stakers[poolId][_user].stakedTokens[j].tokenId;
-                    _index++;
-                }
-            }
-              // Resize the _stakedTokenIds array to remove any unused slots
-         assembly {
-            mstore(_stakedTokenIds, _index)
-          }
-
-
-            return _stakedTokenIds;
-        }
-        // Otherwise, return empty array
-        else {
-                  return new uint256[](0);
-        }
-    }
 
     /*///////////////////////////////////////////////////////////////
                             Miscellaneous
@@ -178,3 +100,4 @@ contract NEOstake is ERC721Holder, Staking {
         return _msgSender();
     }
 }
+

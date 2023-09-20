@@ -4,22 +4,35 @@ import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils//structs/EnumerableSet.sol";
 import "./interface/IStaking.sol";
 
 abstract contract Staking is IStaking, ReentrancyGuard, Ownable {
-    // loop limit 
-    uint256 private batchSizeforloop = 10;
+    using EnumerableSet for EnumerableSet.UintSet;
+    // Staker user info
+    struct Staker {
+        // Amount of tokens staked by the staker
+        uint256 amountStaked;
+        // Staked token ids
+        EnumerableSet.UintSet stakedTokens;
+        // Last time of the rewards were calculated for this user
+        uint256 timeOfLastUpdate;
+        // Calculated, but unclaimed rewards for the User. The rewards are
+        uint256 unclaimedRewards;
+        uint256 conditionIdOflastUpdate;
+    }
+
     // Mapping all pool record
     mapping(uint256 => Pool) public pools;
 
     //Mapping for set record if pool already made
     mapping(uint256 => bool) public activePool;
 
-    ///@dev Mapping from condition Id to staking condition. See {struct IStaking721.StakingCondition}
+    ///@dev Mapping from condition Id to staking condition.
     mapping(uint256 => StakingCondition) private stakingConditions;
 
     // Mapping of User Address to Staker info
-    mapping(uint256 => mapping(address => Staker)) public stakers;
+    mapping(uint256 => mapping(address => Staker)) private stakers;
 
     // Mapping of Token Id to staker. Made for the SC to remember
     // who to send back the ERC721 Token to.
@@ -76,12 +89,6 @@ abstract contract Staking is IStaking, ReentrancyGuard, Ownable {
     function updateMaxTx(uint256 _newMaxTx) external onlyOwner {
         require(_newMaxTx != 0, "New MaxTx must be greater than zero");
         MaxTx = _newMaxTx;
-    }
-
-       // Function to update MaxTx
-    function updateMaxLoop(uint256 _limit) external onlyOwner {
-        require(batchSizeforloop != 0, "New _limit must be greater than zero");
-        batchSizeforloop = _limit;
     }
 
     /**
@@ -285,17 +292,10 @@ abstract contract Staking is IStaking, ReentrancyGuard, Ownable {
                 _tokenIds[i]
             );
 
-            // Create StakedToken
-            StakedToken memory stakedToken = StakedToken(
-                _stakeMsgSender(),
-                _tokenIds[i]
-            );
-
-            // Add the token to the stakedTokens array
-            stakers[poolId][_stakeMsgSender()].stakedTokens.push(stakedToken);
-
             // Update the mapping of the tokenId to the staker's address
             stakerAddress[poolId][_tokenIds[i]] = _stakeMsgSender();
+            // Add the token to the stakedTokens array
+            stakers[poolId][_stakeMsgSender()].stakedTokens.add(_tokenIds[i]);
         }
         // Increment the amount staked
         stakers[poolId][_stakeMsgSender()].amountStaked += len;
@@ -329,7 +329,6 @@ abstract contract Staking is IStaking, ReentrancyGuard, Ownable {
                 "You don't own these tokens!"
             );
         }
-
         _updateUnclaimedRewardsForStaker(poolId, _stakeMsgSender());
 
         // Decrement the amount staked
@@ -337,31 +336,9 @@ abstract contract Staking is IStaking, ReentrancyGuard, Ownable {
         pool.totalStaked -= len;
 
         for (uint256 i = 0; i < _tokenIds.length; i++) {
-            // Find the index of this token id in the stakedTokens array
-            uint256 index = 0;
-            for (
-                uint256 j = 0;
-                j < stakers[poolId][_stakeMsgSender()].stakedTokens.length;
-                j++
-            ) {
-                if (
-                    stakers[poolId][_stakeMsgSender()]
-                        .stakedTokens[j]
-                        .tokenId ==
-                    _tokenIds[i] &&
-                    stakers[poolId][_stakeMsgSender()].stakedTokens[j].staker !=
-                    address(0)
-                ) {
-                    index = j;
-                    break;
-                }
-            }
-
-            // Set this token's .staker to be address 0 to mark it as no longer staked
-            stakers[poolId][_stakeMsgSender()]
-                .stakedTokens[index]
-                .staker = address(0);
-
+            stakers[poolId][_stakeMsgSender()].stakedTokens.remove(
+                _tokenIds[i]
+            );
             // Update the mapping of the tokenId to the be address(0) to indicate that the token is no longer staked
             stakerAddress[poolId][_tokenIds[i]] = address(0);
 
@@ -409,27 +386,21 @@ abstract contract Staking is IStaking, ReentrancyGuard, Ownable {
             1;
     }
 
-    /// @dev Calculate rewards for a staker with pagination.
-    function _calculateRewardsWithPagination(
-        uint256 poolId,
-        address _staker,
-        uint256 startIndex,
-        uint256 batchSize
-    ) internal view virtual returns (uint256 _rewards) {
-        Staker memory staker = stakers[poolId][_staker];
+    /// @dev Calculate rewards for a staker.
+    function _calculateRewards(uint256 poolId, address _staker)
+        internal
+        view
+        virtual
+        returns (uint256 _rewards)
+    {
+        Staker storage staker = stakers[poolId][_staker];
         Pool storage pool = pools[poolId];
-
+        uint256 _stakerConditionId = staker.conditionIdOflastUpdate;
         uint256 _nextConditionId = pool.nextConditionId;
-        uint256 endIndex = startIndex + batchSize;
-
-        if (endIndex > _nextConditionId) {
-            endIndex = _nextConditionId;
-        }
-
-        for (uint256 i = startIndex; i < endIndex; i += 1) {
+        for (uint256 i = _stakerConditionId; i < _nextConditionId; i += 1) {
             StakingCondition memory condition = pool.stakingConditions[i];
 
-            uint256 startTime = i != startIndex
+            uint256 startTime = i != _stakerConditionId
                 ? condition.startTimestamp
                 : staker.timeOfLastUpdate;
             uint256 endTime = condition.endTimestamp != 0
@@ -449,45 +420,80 @@ abstract contract Staking is IStaking, ReentrancyGuard, Ownable {
                 ? rewardsSum
                 : _rewards;
         }
-
-        return _rewards;
     }
 
-    // External function to calculate rewards with pagination
-    function _calculateRewards(uint256 poolId, address _staker)
-        internal
+    /// @dev View available rewards for a user.
+    function availableRewards(uint256 poolId, address _user)
+        public
         view
-        virtual
         returns (uint256 _rewards)
     {
-        uint256 startIndex = 0;
-
-        // Get the last condition ID
-        uint256 _nextConditionId = pools[poolId].nextConditionId;
-
-        // Loop until all staking conditions are processed or startIndex exceeds _nextConditionId
-        while (startIndex < _nextConditionId) {
-            // Calculate the number of conditions to process in this batch
-            uint256 conditionsToProcess;
-            if (_nextConditionId - startIndex < batchSizeforloop) {
-                conditionsToProcess = _nextConditionId - startIndex;
-            } else {
-                conditionsToProcess = batchSizeforloop;
-            }
-
-            uint256 rewardsBatch = _calculateRewardsWithPagination(
-                poolId,
-                _staker,
-                startIndex,
-                conditionsToProcess
-            );
-            _rewards += rewardsBatch;
-
-            // Increment the starting index for the next batch
-            startIndex += conditionsToProcess;
+        if (stakers[poolId][_user].amountStaked == 0) {
+            _rewards = stakers[poolId][_user].unclaimedRewards;
+        } else {
+            _rewards =
+                stakers[poolId][_user].unclaimedRewards +
+                _calculateRewards(poolId, _user);
         }
+    }
 
-        return _rewards;
+    // Function to get staker information by pool ID and address
+    function getStakerInfo(uint256 poolId, address _stakerAddress)
+        external
+        view
+        returns (
+            uint256 _totalStaked,
+            uint256 _conditionid,
+            uint256 _timeOfLastUpdate,
+            uint256 _unclaimedRewards
+        )
+    {
+        Staker storage user = stakers[poolId][_stakerAddress];
+        _totalStaked = user.amountStaked;
+        _conditionid = user.conditionIdOflastUpdate;
+        _timeOfLastUpdate = user.timeOfLastUpdate;
+        _unclaimedRewards = user.unclaimedRewards;
+    }
+
+    /// @dev view user info
+    function getUser(uint256 poolId, address _user)
+        public
+        view
+        returns (uint256 _rewards, uint256 _staked)
+    {
+        _rewards = availableRewards(poolId, _user);
+        _staked = stakers[poolId][_user].amountStaked;
+    }
+
+    function getStakedTokens(uint256 poolId, address _user)
+        public
+        view
+        returns (uint256[] memory)
+    {
+        Staker storage user = stakers[poolId][_user];
+        if (user.amountStaked != 0) {
+            uint256[] memory _stakedTokenIds = new uint256[](user.amountStaked);
+            uint256 index;
+            for (index = 0; index < user.amountStaked; index++) {
+                _stakedTokenIds[index] = tokenOfOwnerByIndex(
+                    poolId,
+                    _user,
+                    index
+                );
+            }
+            return _stakedTokenIds;
+        } else {
+            return new uint256[](0);
+        }
+    }
+
+    function tokenOfOwnerByIndex(
+        uint256 poolId,
+        address _stakerAddress,
+        uint256 __index
+    ) public view returns (uint256) {
+        Staker storage user = stakers[poolId][_stakerAddress];
+        return user.stakedTokens.at(__index);
     }
 
     /*////////////////////////////////////////////////////////////////////
