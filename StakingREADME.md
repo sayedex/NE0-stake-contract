@@ -43,10 +43,10 @@ Before interacting with the Staking contract, make sure you have the following:
 
 ## How to update per day reward for each pool?
 
-### POOL 0
+### POOL 0 Genesis
  - poolId: The ID of the pool you want to update.
  - Pool 0
- - for example we take Genesis pool 0 , reward : 0.4/per day
+ -  we take Genesis pool 0 , reward : 0.4/per day
  - how to calculate and call the setRewardsPerUnitTime function
  - so 0.4 per day the math will be 0.4/1440 = 0.0002777777777777778 
  - 0.0002777777777777778 is normal value we have to convert it to wei
@@ -59,10 +59,10 @@ function setRewardsPerUnitTime(uint256 poolId, uint256 _rewardsPerUnitTime) exte
   //admin
 }
 ```  
-### POOL 1
+### POOL 1 Gold
  - poolId: The ID of the pool you want to update.
  - Pool 1
- - for example we take Gold pool 1, reward : 4/per day
+ -  we take Gold pool 1, reward : 4/per day
  - how to calculate and call the setRewardsPerUnitTime function
  - so 4 per day the math will be 4/1440 =0.002777777777777778
  - 0.002777777777777778 is normal value we have to convert it to wei
@@ -76,10 +76,10 @@ function setRewardsPerUnitTime(uint256 poolId, uint256 _rewardsPerUnitTime) exte
 }
 ```  
 
-### POOL 2
+### POOL 2 Platinum
  - poolId: The ID of the pool you want to update.
  - Pool 2
- - for example we take Platinum pool 2 , reward : 8/per day
+ - we take Platinum pool 2 , reward : 8/per day
  - how to calculate and call the setRewardsPerUnitTime function
  - so 8 per day the math will be 8/1440 = 0.005555555555555556
  - 0.005555555555555556 is normal value we have to convert it to wei
@@ -92,10 +92,10 @@ function setRewardsPerUnitTime(uint256 poolId, uint256 _rewardsPerUnitTime) exte
   //admin 
 }
 ``` 
-### POOL 3
+### POOL 3 Diamond
  - poolId: The ID of the pool you want to update.
  - Pool 3
- - for example we take Diamond pool 3 , reward : 15/per day
+ - we take Diamond pool 3 , reward : 15/per day
  - how to calculate and call the setRewardsPerUnitTime function
  - so 15 per day the math will be 15/1440 =0.010416666666666666
  - 0.010416666666666666 is normal value we have to convert it to wei
