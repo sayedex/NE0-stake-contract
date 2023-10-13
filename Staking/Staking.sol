@@ -5,7 +5,7 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils//structs/EnumerableSet.sol";
-import "./interface/IStaking.sol";
+import "./IStaking.sol";
 
 abstract contract Staking is IStaking, ReentrancyGuard, Ownable {
     using EnumerableSet for EnumerableSet.UintSet;
@@ -465,6 +465,7 @@ abstract contract Staking is IStaking, ReentrancyGuard, Ownable {
         _staked = stakers[poolId][_user].amountStaked;
     }
 
+    /// @dev view getStakedTokens 
     function getStakedTokens(uint256 poolId, address _user)
         public
         view
@@ -494,6 +495,15 @@ abstract contract Staking is IStaking, ReentrancyGuard, Ownable {
     ) public view returns (uint256) {
         Staker storage user = stakers[poolId][_stakerAddress];
         return user.stakedTokens.at(__index);
+    }
+
+      function isStaked(uint256 poolId,address _stakerAddress, uint256 __tokenId)
+        public
+        view
+        returns (bool)
+    {
+        Staker storage user = stakers[poolId][_stakerAddress];
+        return user.stakedTokens.contains(__tokenId);
     }
 
     /*////////////////////////////////////////////////////////////////////
@@ -527,3 +537,4 @@ abstract contract Staking is IStaking, ReentrancyGuard, Ownable {
         uint256 _rewards
     ) internal virtual;
 }
+

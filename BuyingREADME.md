@@ -35,6 +35,7 @@ As the owner of the contract, you have the ability to set or update the price of
 -  need to put wei amount in _price
 - price must be in NEObux
 - use it to convert https://eth-converter.com/ 
+- put the price in Ether input on  https://eth-converter.com/  then copy the wei value and paste to setNFTPrice done
 
 ```solidity
 
